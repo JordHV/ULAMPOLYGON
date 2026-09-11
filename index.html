@@ -13,6 +13,7 @@
       --accent: #3d9b8f;
       --line: #6b7c8c;
       --prime: #e8c47c;
+      --prime-collinear: #e85d5d;
       --border: #3a4550;
       --danger: #d67a7a;
     }
@@ -75,6 +76,30 @@
       color: var(--muted);
       min-width: 9.5rem;
       flex: 1 1 9.5rem;
+    }
+
+    label.toggle {
+      flex-direction: row;
+      align-items: center;
+      gap: 0.65rem;
+      min-height: 2.75rem;
+      align-self: flex-end;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    label.toggle input {
+      width: 1.15rem;
+      height: 1.15rem;
+      accent-color: var(--prime-collinear);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    label.toggle span {
+      color: var(--ink);
+      font-size: 0.85rem;
+      line-height: 1.25;
     }
 
     .stepper {
@@ -208,6 +233,12 @@
         flex: none;
       }
 
+      label.toggle {
+        grid-column: 1 / -1;
+        align-self: stretch;
+        min-height: 2.5rem;
+      }
+
       .step {
         flex-basis: 2.5rem;
         width: 2.5rem;
@@ -234,7 +265,7 @@
 </head>
 <body>
   <h1>Ulam Spiral</h1>
-  <p class="hint">Spiral path as a line; hollow circles mark primes. Edges set the polygon (3 = triangle, 4 = square, …).</p>
+  <p class="hint">Spiral path as a line; hollow circles mark primes. Edges set the polygon (3 = triangle, 4 = square, …). Turn on collinear highlight to mark primes red when 10+ of them share a straight line.</p>
 
   <form class="controls" id="form" novalidate>
     <label>
@@ -269,6 +300,10 @@
         <button type="button" class="step" data-for="maxIncrements" data-delta="1" aria-label="Increase max increments">+</button>
       </div>
     </label>
+    <label class="toggle" for="collinearHighlight">
+      <input type="checkbox" id="collinearHighlight" />
+      <span>Highlight collinear primes (10+)</span>
+    </label>
   </form>
 
   <p class="error" id="error" aria-live="polite"></p>
@@ -289,6 +324,8 @@
         increment: document.getElementById("increment"),
         maxIncrements: document.getElementById("maxIncrements"),
       };
+      const collinearToggle = document.getElementById("collinearHighlight");
+      const COLLINEAR_MIN = 10;
       let lastPoints = null;
 
       function syncCanvasSize() {
@@ -398,6 +435,51 @@
         return points;
       }
 
+      /** Indices of primes that lie on at least one line with ≥ minCount primes. */
+      function findCollinearPrimeIndices(points, minCount) {
+        const primes = [];
+        for (let i = 0; i < points.length; i++) {
+          if (points[i].prime) primes.push(i);
+        }
+        if (primes.length < minCount) return new Set();
+
+        const highlighted = new Set();
+        const eps = 1e-9;
+        const n = primes.length;
+
+        for (let i = 0; i < n; i++) {
+          const groups = new Map();
+          const pi = points[primes[i]];
+          for (let j = 0; j < n; j++) {
+            if (i === j) continue;
+            const pj = points[primes[j]];
+            let dx = pj.x - pi.x;
+            let dy = pj.y - pi.y;
+            if (Math.abs(dx) < eps && Math.abs(dy) < eps) continue;
+            const len = Math.hypot(dx, dy);
+            dx /= len;
+            dy /= len;
+            if (dx < -eps || (Math.abs(dx) < eps && dy < 0)) {
+              dx = -dx;
+              dy = -dy;
+            }
+            const key = Math.round(dx * 1e6) + "," + Math.round(dy * 1e6);
+            let group = groups.get(key);
+            if (!group) {
+              group = [primes[i]];
+              groups.set(key, group);
+            }
+            group.push(primes[j]);
+          }
+          for (const group of groups.values()) {
+            if (group.length < minCount) continue;
+            for (let k = 0; k < group.length; k++) highlighted.add(group[k]);
+          }
+        }
+
+        return highlighted;
+      }
+
       function draw(points) {
         lastPoints = points;
         const cssSize = syncCanvasSize();
@@ -440,15 +522,25 @@
         }
         ctx.stroke();
 
+        const styles = getComputedStyle(document.documentElement);
+        const primeColor = styles.getPropertyValue("--prime").trim() || "#e8c47c";
+        const collinearColor = styles.getPropertyValue("--prime-collinear").trim() || "#e85d5d";
+        const highlightCollinear = collinearToggle.checked;
+        const collinear = highlightCollinear
+          ? findCollinearPrimeIndices(points, COLLINEAR_MIN)
+          : null;
+
         const radius = Math.max(2.2, Math.min(7, 90 / Math.sqrt(points.length)));
-        ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--prime").trim() || "#e8c47c";
-        ctx.lineWidth = Math.max(1.25, radius * 0.35);
+        const baseWidth = Math.max(1.25, radius * 0.35);
 
         for (let i = 0; i < points.length; i++) {
           if (!points[i].prime) continue;
           const { sx, sy } = screen[i];
+          const isCollinear = collinear && collinear.has(i);
+          ctx.strokeStyle = isCollinear ? collinearColor : primeColor;
+          ctx.lineWidth = isCollinear ? baseWidth * 1.75 : baseWidth;
           ctx.beginPath();
-          ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+          ctx.arc(sx, sy, isCollinear ? radius * 1.15 : radius, 0, Math.PI * 2);
           ctx.stroke();
         }
       }
@@ -488,6 +580,10 @@
 
       form.addEventListener("input", function (e) {
         if (e.target && e.target.matches('input[type="number"]')) recalculate();
+      });
+
+      form.addEventListener("change", function (e) {
+        if (e.target === collinearToggle) redraw();
       });
 
       form.addEventListener("click", function (e) {
