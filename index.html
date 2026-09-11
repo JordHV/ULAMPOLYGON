@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Ulam Spiral</title>
+  <style>
+    :root {
+      --bg: #1a1f24;
+      --panel: #242b33;
+      --ink: #e8eef4;
+      --muted: #9aa8b5;
+      --accent: #3d9b8f;
+      --line: #6b7c8c;
+      --prime: #e8c47c;
+      --border: #3a4550;
+      --danger: #d67a7a;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      min-height: 100dvh;
+      font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+      background:
+        radial-gradient(ellipse at 20% 0%, #2a3540 0%, transparent 50%),
+        radial-gradient(ellipse at 100% 100%, #1e2a28 0%, transparent 45%),
+        var(--bg);
+      color: var(--ink);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding:
+        max(0.75rem, env(safe-area-inset-top))
+        max(0.75rem, env(safe-area-inset-right))
+        max(0.75rem, env(safe-area-inset-bottom))
+        max(0.75rem, env(safe-area-inset-left));
+      gap: 0.75rem;
+    }
+
+    h1 {
+      margin: 0;
+      font-weight: 600;
+      font-size: clamp(1.15rem, 4vw, 1.75rem);
+      letter-spacing: 0.02em;
+      text-align: center;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1rem;
+      align-items: flex-end;
+      justify-content: center;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      max-width: 960px;
+      width: 100%;
+    }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+      min-width: 8.5rem;
+      flex: 1 1 8.5rem;
+    }
+
+    input[type="number"] {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--ink);
+      padding: 0.55rem 0.65rem;
+      font-size: 16px; /* avoids iOS focus zoom */
+      width: 100%;
+      min-height: 2.75rem;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    input[type="number"]:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+
+    button {
+      background: var(--accent);
+      color: #0f1614;
+      border: none;
+      border-radius: 6px;
+      padding: 0.65rem 1.25rem;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      min-height: 2.75rem;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      flex: 0 0 auto;
+    }
+
+    button:hover { filter: brightness(1.08); }
+    button:active { filter: brightness(0.95); }
+
+    .error {
+      color: var(--danger);
+      font-size: 0.9rem;
+      min-height: 1.1rem;
+      text-align: center;
+      padding: 0 0.25rem;
+      max-width: 36rem;
+    }
+
+    .canvas-wrap {
+      width: min(920px, 100%);
+      max-width: 100%;
+      background: #0e1216;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      aspect-ratio: 1;
+      flex-shrink: 0;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 0.85rem;
+      text-align: center;
+      max-width: 40rem;
+      margin: 0;
+      line-height: 1.35;
+      padding: 0 0.25rem;
+    }
+
+    /* iPhone / narrow phones: fit controls + square canvas in one view */
+    @media (max-width: 480px) {
+      body {
+        gap: 0.55rem;
+        padding:
+          max(0.55rem, env(safe-area-inset-top))
+          max(0.55rem, env(safe-area-inset-right))
+          max(0.55rem, env(safe-area-inset-bottom))
+          max(0.55rem, env(safe-area-inset-left));
+      }
+
+      .hint {
+        font-size: 0.78rem;
+      }
+
+      .controls {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.65rem;
+        padding: 0.75rem;
+      }
+
+      label {
+        min-width: 0;
+        flex: none;
+      }
+
+      button {
+        grid-column: 1 / -1;
+        width: 100%;
+      }
+
+      .error {
+        font-size: 0.82rem;
+        min-height: 0.95rem;
+      }
+
+      .canvas-wrap {
+        /* leave room for title, hint, controls, error */
+        width: min(100%, calc(100dvh - 13.5rem));
+        max-height: calc(100dvh - 13.5rem);
+      }
+    }
+
+    @media (max-width: 380px) {
+      .canvas-wrap {
+        width: min(100%, calc(100dvh - 14.5rem));
+        max-height: calc(100dvh - 14.5rem);
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Ulam Spiral</h1>
+  <p class="hint">Spiral path as a line; hollow circles mark primes. Edges set the polygon (3 = triangle, 4 = square, …).</p>
+
+  <form class="controls" id="form" novalidate>
+    <label>
+      Start (center)
+      <input type="number" id="start" min="1" step="1" value="1" required />
+    </label>
+    <label>
+      Edges
+      <input type="number" id="edges" min="3" max="100" step="1" value="4" required />
+    </label>
+    <label>
+      Increment
+      <input type="number" id="increment" min="1" step="1" value="1" required />
+    </label>
+    <label>
+      Max increments
+      <input type="number" id="maxIncrements" min="1" step="1" value="500" required />
+    </label>
+    <button type="submit" id="calc">Calc</button>
+  </form>
+
+  <p class="error" id="error" aria-live="polite"></p>
+
+  <div class="canvas-wrap">
+    <canvas id="canvas" width="900" height="900"></canvas>
+  </div>
+
+  <script>
+    (function () {
+      const form = document.getElementById("form");
+      const errorEl = document.getElementById("error");
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      let lastPoints = null;
+
+      function syncCanvasSize() {
+        const wrap = canvas.parentElement;
+        const cssSize = Math.max(1, Math.floor(wrap.clientWidth || 300));
+        const dpr = Math.min(window.devicePixelRatio || 1, 3);
+        const px = Math.round(cssSize * dpr);
+        if (canvas.width !== px || canvas.height !== px) {
+          canvas.width = px;
+          canvas.height = px;
+        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        return cssSize;
+      }
+
+      function isPrime(n) {
+        if (n < 2) return false;
+        if (n % 2 === 0) return n === 2;
+        if (n % 3 === 0) return n === 3;
+        for (let i = 5; i * i <= n; i += 6) {
+          if (n % i === 0 || n % (i + 2) === 0) return false;
+        }
+        return true;
+      }
+
+      function parsePositiveInt(el, name, min, max) {
+        const raw = el.value.trim();
+        if (raw === "" || !/^\d+$/.test(raw)) {
+          throw new Error(name + " must be a positive integer.");
+        }
+        const n = Number(raw);
+        if (!Number.isInteger(n) || n < min) {
+          throw new Error(name + " must be an integer ≥ " + min + ".");
+        }
+        if (max != null && n > max) {
+          throw new Error(name + " must be ≤ " + max + ".");
+        }
+        return n;
+      }
+
+      /** Polygonal Ulam-like path: N directions; length grows every floor(N/2) sides (classic square when N=4). */
+      function buildSpiral(start, edges, increment, maxIncrements) {
+        const points = [];
+        let x = 0;
+        let y = 0;
+        let value = start;
+        points.push({ x, y, value, prime: isPrime(value) });
+
+        const dirs = [];
+        for (let i = 0; i < edges; i++) {
+          const angle = (2 * Math.PI * i) / edges;
+          dirs.push({ dx: Math.cos(angle), dy: -Math.sin(angle) });
+        }
+
+        const sidesBeforeGrow = Math.max(1, Math.floor(edges / 2));
+        let dirIndex = 0;
+        let sideLength = 1;
+        let sidesDrawn = 0;
+        let stepsLeft = maxIncrements;
+
+        while (stepsLeft > 0) {
+          const dir = dirs[dirIndex % edges];
+          const stepsThisSide = Math.min(sideLength, stepsLeft);
+          for (let s = 0; s < stepsThisSide; s++) {
+            x += dir.dx;
+            y += dir.dy;
+            value += increment;
+            points.push({ x, y, value, prime: isPrime(value) });
+          }
+          stepsLeft -= stepsThisSide;
+          dirIndex += 1;
+          sidesDrawn += 1;
+          if (sidesDrawn >= sidesBeforeGrow) {
+            sidesDrawn = 0;
+            sideLength += 1;
+          }
+        }
+
+        return points;
+      }
+
+      function draw(points) {
+        lastPoints = points;
+        const cssSize = syncCanvasSize();
+        const w = cssSize;
+        const h = cssSize;
+        ctx.clearRect(0, 0, w, h);
+
+        if (!points || points.length === 0) return;
+
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        for (const p of points) {
+          if (p.x < minX) minX = p.x;
+          if (p.x > maxX) maxX = p.x;
+          if (p.y < minY) minY = p.y;
+          if (p.y > maxY) maxY = p.y;
+        }
+
+        const pad = Math.max(12, Math.min(28, cssSize * 0.04));
+        const spanX = Math.max(maxX - minX, 1e-9);
+        const spanY = Math.max(maxY - minY, 1e-9);
+        const scale = Math.min((w - 2 * pad) / spanX, (h - 2 * pad) / spanY);
+
+        function toScreen(p) {
+          return {
+            sx: pad + (p.x - minX) * scale,
+            sy: pad + (p.y - minY) * scale,
+          };
+        }
+
+        const screen = points.map(toScreen);
+
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+        ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--line").trim() || "#6b7c8c";
+        ctx.lineWidth = Math.max(1, Math.min(2.5, 40 / Math.sqrt(points.length)));
+        ctx.beginPath();
+        ctx.moveTo(screen[0].sx, screen[0].sy);
+        for (let i = 1; i < screen.length; i++) {
+          ctx.lineTo(screen[i].sx, screen[i].sy);
+        }
+        ctx.stroke();
+
+        const radius = Math.max(2.2, Math.min(7, 90 / Math.sqrt(points.length)));
+        ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--prime").trim() || "#e8c47c";
+        ctx.lineWidth = Math.max(1.25, radius * 0.35);
+
+        for (let i = 0; i < points.length; i++) {
+          if (!points[i].prime) continue;
+          const { sx, sy } = screen[i];
+          ctx.beginPath();
+          ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+
+      function redraw() {
+        if (lastPoints) draw(lastPoints);
+      }
+
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        errorEl.textContent = "";
+        try {
+          const start = parsePositiveInt(document.getElementById("start"), "Start", 1);
+          const edges = parsePositiveInt(document.getElementById("edges"), "Edges", 3, 100);
+          const increment = parsePositiveInt(document.getElementById("increment"), "Increment", 1);
+          const maxIncrements = parsePositiveInt(
+            document.getElementById("maxIncrements"),
+            "Max increments",
+            1
+          );
+          const points = buildSpiral(start, edges, increment, maxIncrements);
+          draw(points);
+        } catch (err) {
+          errorEl.textContent = err.message || String(err);
+        }
+      });
+
+      window.addEventListener("resize", redraw);
+      window.addEventListener("orientationchange", function () {
+        setTimeout(redraw, 150);
+      });
+
+      form.dispatchEvent(new Event("submit"));
+    })();
+  </script>
+</body>
+</html>
