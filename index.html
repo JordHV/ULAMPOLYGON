@@ -531,14 +531,16 @@
           : null;
 
         const radius = Math.max(2.2, Math.min(7, 90 / Math.sqrt(points.length)));
-        ctx.lineWidth = Math.max(1.25, radius * 0.35);
+        const baseWidth = Math.max(1.25, radius * 0.35);
 
         for (let i = 0; i < points.length; i++) {
           if (!points[i].prime) continue;
           const { sx, sy } = screen[i];
-          ctx.strokeStyle = collinear && collinear.has(i) ? collinearColor : primeColor;
+          const isCollinear = collinear && collinear.has(i);
+          ctx.strokeStyle = isCollinear ? collinearColor : primeColor;
+          ctx.lineWidth = isCollinear ? baseWidth * 1.75 : baseWidth;
           ctx.beginPath();
-          ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+          ctx.arc(sx, sy, isCollinear ? radius * 1.15 : radius, 0, Math.PI * 2);
           ctx.stroke();
         }
       }
