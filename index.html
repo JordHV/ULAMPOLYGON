@@ -73,45 +73,77 @@
       gap: 0.35rem;
       font-size: 0.8rem;
       color: var(--muted);
-      min-width: 8.5rem;
-      flex: 1 1 8.5rem;
+      min-width: 9.5rem;
+      flex: 1 1 9.5rem;
     }
 
-    input[type="number"] {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--ink);
-      padding: 0.55rem 0.65rem;
-      font-size: 16px; /* avoids iOS focus zoom */
+    .stepper {
+      display: flex;
+      align-items: stretch;
       width: 100%;
       min-height: 2.75rem;
-      -webkit-appearance: none;
-      appearance: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      background: var(--bg);
     }
 
-    input[type="number"]:focus {
+    .stepper:focus-within {
       outline: 2px solid var(--accent);
       outline-offset: 1px;
     }
 
-    button {
-      background: var(--accent);
-      color: #0f1614;
+    .stepper input[type="number"] {
+      flex: 1 1 auto;
+      min-width: 0;
+      width: 100%;
       border: none;
-      border-radius: 6px;
-      padding: 0.65rem 1.25rem;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      border-radius: 0;
+      background: transparent;
+      color: var(--ink);
+      padding: 0.55rem 0.4rem;
+      font-size: 16px;
+      text-align: center;
       min-height: 2.75rem;
-      touch-action: manipulation;
-      -webkit-tap-highlight-color: transparent;
-      flex: 0 0 auto;
+      -webkit-appearance: none;
+      appearance: textfield;
+      margin: 0;
     }
 
-    button:hover { filter: brightness(1.08); }
-    button:active { filter: brightness(0.95); }
+    .stepper input[type="number"]::-webkit-outer-spin-button,
+    .stepper input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    .stepper input[type="number"]:focus {
+      outline: none;
+    }
+
+    .step {
+      flex: 0 0 2.75rem;
+      width: 2.75rem;
+      border: none;
+      background: transparent;
+      color: var(--ink);
+      font-size: 1.25rem;
+      font-weight: 600;
+      line-height: 1;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      padding: 0;
+    }
+
+    .step:hover { background: rgba(61, 155, 143, 0.18); }
+    .step:active { background: rgba(61, 155, 143, 0.28); }
+    .step:disabled {
+      opacity: 0.35;
+      cursor: default;
+      background: transparent;
+    }
 
     .error {
       color: var(--danger);
@@ -150,7 +182,6 @@
       padding: 0 0.25rem;
     }
 
-    /* iPhone / narrow phones: fit controls + square canvas in one view */
     @media (max-width: 480px) {
       body {
         gap: 0.55rem;
@@ -177,9 +208,9 @@
         flex: none;
       }
 
-      button {
-        grid-column: 1 / -1;
-        width: 100%;
+      .step {
+        flex-basis: 2.5rem;
+        width: 2.5rem;
       }
 
       .error {
@@ -188,7 +219,6 @@
       }
 
       .canvas-wrap {
-        /* leave room for title, hint, controls, error */
         width: min(100%, calc(100dvh - 13.5rem));
         max-height: calc(100dvh - 13.5rem);
       }
@@ -209,21 +239,36 @@
   <form class="controls" id="form" novalidate>
     <label>
       Start (center)
-      <input type="number" id="start" min="1" step="1" value="1" required />
+      <div class="stepper">
+        <button type="button" class="step" data-for="start" data-delta="-1" aria-label="Decrease start">−</button>
+        <input type="number" id="start" min="1" step="1" value="1" required />
+        <button type="button" class="step" data-for="start" data-delta="1" aria-label="Increase start">+</button>
+      </div>
     </label>
     <label>
       Edges
-      <input type="number" id="edges" min="3" max="100" step="1" value="4" required />
+      <div class="stepper">
+        <button type="button" class="step" data-for="edges" data-delta="-1" aria-label="Decrease edges">−</button>
+        <input type="number" id="edges" min="3" max="100" step="1" value="4" required />
+        <button type="button" class="step" data-for="edges" data-delta="1" aria-label="Increase edges">+</button>
+      </div>
     </label>
     <label>
       Increment
-      <input type="number" id="increment" min="1" step="1" value="1" required />
+      <div class="stepper">
+        <button type="button" class="step" data-for="increment" data-delta="-1" aria-label="Decrease increment">−</button>
+        <input type="number" id="increment" min="1" step="1" value="1" required />
+        <button type="button" class="step" data-for="increment" data-delta="1" aria-label="Increase increment">+</button>
+      </div>
     </label>
     <label>
       Max increments
-      <input type="number" id="maxIncrements" min="1" step="1" value="500" required />
+      <div class="stepper">
+        <button type="button" class="step" data-for="maxIncrements" data-delta="-1" aria-label="Decrease max increments">−</button>
+        <input type="number" id="maxIncrements" min="1" step="1" value="500" required />
+        <button type="button" class="step" data-for="maxIncrements" data-delta="1" aria-label="Increase max increments">+</button>
+      </div>
     </label>
-    <button type="submit" id="calc">Calc</button>
   </form>
 
   <p class="error" id="error" aria-live="polite"></p>
@@ -238,6 +283,12 @@
       const errorEl = document.getElementById("error");
       const canvas = document.getElementById("canvas");
       const ctx = canvas.getContext("2d");
+      const fields = {
+        start: document.getElementById("start"),
+        edges: document.getElementById("edges"),
+        increment: document.getElementById("increment"),
+        maxIncrements: document.getElementById("maxIncrements"),
+      };
       let lastPoints = null;
 
       function syncCanvasSize() {
@@ -276,6 +327,34 @@
           throw new Error(name + " must be ≤ " + max + ".");
         }
         return n;
+      }
+
+      function fieldBounds(el) {
+        const min = el.min !== "" ? Number(el.min) : 1;
+        const max = el.max !== "" ? Number(el.max) : null;
+        return { min, max };
+      }
+
+      function updateStepButtons(el) {
+        const { min, max } = fieldBounds(el);
+        const n = Number(el.value);
+        const valid = Number.isInteger(n);
+        form.querySelectorAll('.step[data-for="' + el.id + '"]').forEach(function (btn) {
+          const delta = Number(btn.dataset.delta);
+          if (!valid) {
+            btn.disabled = false;
+            return;
+          }
+          if (delta < 0) btn.disabled = n <= min;
+          else if (max != null) btn.disabled = n >= max;
+          else btn.disabled = false;
+        });
+      }
+
+      function syncAllStepButtons() {
+        Object.keys(fields).forEach(function (id) {
+          updateStepButtons(fields[id]);
+        });
       }
 
       /** Polygonal Ulam-like path: N directions; length grows every floor(N/2) sides (classic square when N=4). */
@@ -378,23 +457,45 @@
         if (lastPoints) draw(lastPoints);
       }
 
-      form.addEventListener("submit", function (e) {
-        e.preventDefault();
+      function recalculate() {
         errorEl.textContent = "";
+        syncAllStepButtons();
         try {
-          const start = parsePositiveInt(document.getElementById("start"), "Start", 1);
-          const edges = parsePositiveInt(document.getElementById("edges"), "Edges", 3, 100);
-          const increment = parsePositiveInt(document.getElementById("increment"), "Increment", 1);
-          const maxIncrements = parsePositiveInt(
-            document.getElementById("maxIncrements"),
-            "Max increments",
-            1
-          );
-          const points = buildSpiral(start, edges, increment, maxIncrements);
-          draw(points);
+          const start = parsePositiveInt(fields.start, "Start", 1);
+          const edges = parsePositiveInt(fields.edges, "Edges", 3, 100);
+          const increment = parsePositiveInt(fields.increment, "Increment", 1);
+          const maxIncrements = parsePositiveInt(fields.maxIncrements, "Max increments", 1);
+          draw(buildSpiral(start, edges, increment, maxIncrements));
         } catch (err) {
           errorEl.textContent = err.message || String(err);
         }
+      }
+
+      function nudge(el, delta) {
+        const { min, max } = fieldBounds(el);
+        const current = Number(el.value);
+        const base = Number.isInteger(current) ? current : min;
+        let next = base + delta;
+        if (next < min) next = min;
+        if (max != null && next > max) next = max;
+        el.value = String(next);
+        recalculate();
+      }
+
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+      });
+
+      form.addEventListener("input", function (e) {
+        if (e.target && e.target.matches('input[type="number"]')) recalculate();
+      });
+
+      form.addEventListener("click", function (e) {
+        const btn = e.target.closest(".step");
+        if (!btn || !form.contains(btn)) return;
+        const el = fields[btn.dataset.for];
+        if (!el) return;
+        nudge(el, Number(btn.dataset.delta));
       });
 
       window.addEventListener("resize", redraw);
@@ -402,7 +503,7 @@
         setTimeout(redraw, 150);
       });
 
-      form.dispatchEvent(new Event("submit"));
+      recalculate();
     })();
   </script>
 </body>
