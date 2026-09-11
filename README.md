@@ -11,6 +11,8 @@ Polygonal Ulam spiral visualizer. The spiral path is drawn as a line; hollow cir
 | Increment | Added to the value at each step |
 | Max increments | How many steps to draw after the center |
 
+Use the **+** / **−** buttons or type a value; the spiral updates on every change.
+
 ## Local preview
 
 Open `index.html` in a browser, or:
