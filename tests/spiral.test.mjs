@@ -51,6 +51,51 @@ function buildSpiral(start, edges, increment, maxIncrements) {
   return points;
 }
 
+/** Indices of primes that lie on at least one line with ≥ minCount primes. */
+function findCollinearPrimeIndices(points, minCount) {
+  const primes = [];
+  for (let i = 0; i < points.length; i++) {
+    if (points[i].prime) primes.push(i);
+  }
+  if (primes.length < minCount) return new Set();
+
+  const highlighted = new Set();
+  const eps = 1e-9;
+  const n = primes.length;
+
+  for (let i = 0; i < n; i++) {
+    const groups = new Map();
+    const pi = points[primes[i]];
+    for (let j = 0; j < n; j++) {
+      if (i === j) continue;
+      const pj = points[primes[j]];
+      let dx = pj.x - pi.x;
+      let dy = pj.y - pi.y;
+      if (Math.abs(dx) < eps && Math.abs(dy) < eps) continue;
+      const len = Math.hypot(dx, dy);
+      dx /= len;
+      dy /= len;
+      if (dx < -eps || (Math.abs(dx) < eps && dy < 0)) {
+        dx = -dx;
+        dy = -dy;
+      }
+      const key = Math.round(dx * 1e6) + "," + Math.round(dy * 1e6);
+      let group = groups.get(key);
+      if (!group) {
+        group = [primes[i]];
+        groups.set(key, group);
+      }
+      group.push(primes[j]);
+    }
+    for (const group of groups.values()) {
+      if (group.length < minCount) continue;
+      for (let k = 0; k < group.length; k++) highlighted.add(group[k]);
+    }
+  }
+
+  return highlighted;
+}
+
 test("isPrime handles small cases", () => {
   assert.equal(isPrime(1), false);
   assert.equal(isPrime(2), true);
@@ -104,4 +149,31 @@ test("triangular spiral has three direction vectors", () => {
     const d = Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
     assert.ok(Math.abs(d - 1) < 1e-9);
   }
+});
+
+test("findCollinearPrimeIndices highlights a line of 10 primes", () => {
+  const points = [];
+  for (let i = 0; i < 10; i++) {
+    points.push({ x: i, y: 2 * i, value: 0, prime: true });
+  }
+  points.push({ x: 0, y: 1, value: 0, prime: true }); // off the line
+  const hit = findCollinearPrimeIndices(points, 10);
+  assert.equal(hit.size, 10);
+  for (let i = 0; i < 10; i++) assert.ok(hit.has(i));
+  assert.equal(hit.has(10), false);
+});
+
+test("findCollinearPrimeIndices ignores short lines", () => {
+  const points = [];
+  for (let i = 0; i < 9; i++) {
+    points.push({ x: i, y: 0, value: 0, prime: true });
+  }
+  const hit = findCollinearPrimeIndices(points, 10);
+  assert.equal(hit.size, 0);
+});
+
+test("default square spiral has collinear prime runs of 10+", () => {
+  const points = buildSpiral(1, 4, 1, 500);
+  const hit = findCollinearPrimeIndices(points, 10);
+  assert.ok(hit.size >= 10);
 });
