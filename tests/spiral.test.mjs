@@ -96,6 +96,55 @@ function findCollinearPrimeIndices(points, minCount) {
   return highlighted;
 }
 
+/** Indices of primes that lie on a line where every spiral node on that line is prime. */
+function findFullyPrimeLineIndices(points) {
+  const highlighted = new Set();
+  const n = points.length;
+  if (n < 2) return highlighted;
+
+  const eps = 1e-9;
+
+  for (let i = 0; i < n; i++) {
+    const groups = new Map();
+    const pi = points[i];
+    for (let j = 0; j < n; j++) {
+      if (i === j) continue;
+      const pj = points[j];
+      let dx = pj.x - pi.x;
+      let dy = pj.y - pi.y;
+      if (Math.abs(dx) < eps && Math.abs(dy) < eps) continue;
+      const len = Math.hypot(dx, dy);
+      dx /= len;
+      dy /= len;
+      if (dx < -eps || (Math.abs(dx) < eps && dy < 0)) {
+        dx = -dx;
+        dy = -dy;
+      }
+      const key = Math.round(dx * 1e6) + "," + Math.round(dy * 1e6);
+      let group = groups.get(key);
+      if (!group) {
+        group = [i];
+        groups.set(key, group);
+      }
+      group.push(j);
+    }
+    for (const group of groups.values()) {
+      if (group.length < 2) continue;
+      let allPrime = true;
+      for (let k = 0; k < group.length; k++) {
+        if (!points[group[k]].prime) {
+          allPrime = false;
+          break;
+        }
+      }
+      if (!allPrime) continue;
+      for (let k = 0; k < group.length; k++) highlighted.add(group[k]);
+    }
+  }
+
+  return highlighted;
+}
+
 test("isPrime handles small cases", () => {
   assert.equal(isPrime(1), false);
   assert.equal(isPrime(2), true);
@@ -176,4 +225,39 @@ test("default square spiral has collinear prime runs of 10+", () => {
   const points = buildSpiral(1, 4, 1, 500);
   const hit = findCollinearPrimeIndices(points, 10);
   assert.ok(hit.size >= 10);
+});
+
+test("findFullyPrimeLineIndices highlights an all-prime line", () => {
+  const points = [
+    { x: 0, y: 0, value: 0, prime: true },
+    { x: 1, y: 0, value: 0, prime: true },
+    { x: 2, y: 0, value: 0, prime: true },
+    { x: 0, y: 1, value: 0, prime: true },
+  ];
+  const hit = findFullyPrimeLineIndices(points);
+  assert.ok(hit.has(0));
+  assert.ok(hit.has(1));
+  assert.ok(hit.has(2));
+});
+
+test("findFullyPrimeLineIndices ignores lines with a non-prime gap", () => {
+  const points = [
+    { x: 0, y: 0, value: 0, prime: true },
+    { x: 1, y: 0, value: 0, prime: false },
+    { x: 2, y: 0, value: 0, prime: true },
+  ];
+  const hit = findFullyPrimeLineIndices(points);
+  assert.equal(hit.size, 0);
+});
+
+test("findFullyPrimeLineIndices highlights short all-prime lines", () => {
+  const points = [
+    { x: 0, y: 0, value: 0, prime: true },
+    { x: 1, y: 1, value: 0, prime: true },
+    { x: 3, y: 0, value: 0, prime: false },
+  ];
+  const hit = findFullyPrimeLineIndices(points);
+  assert.equal(hit.size, 2);
+  assert.ok(hit.has(0));
+  assert.ok(hit.has(1));
 });

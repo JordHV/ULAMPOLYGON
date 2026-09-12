@@ -14,6 +14,7 @@
       --line: #6b7c8c;
       --prime: #e8c47c;
       --prime-collinear: #e85d5d;
+      --prime-full-line: #4caf7a;
       --border: #3a4550;
       --danger: #d67a7a;
     }
@@ -96,10 +97,32 @@
       flex-shrink: 0;
     }
 
+    label.toggle.full-line input {
+      accent-color: var(--prime-full-line);
+    }
+
     label.toggle span {
       color: var(--ink);
       font-size: 0.85rem;
       line-height: 1.25;
+    }
+
+    .highlight-stats {
+      display: none;
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.85rem;
+      text-align: center;
+      line-height: 1.35;
+    }
+
+    .highlight-stats.is-visible {
+      display: block;
+    }
+
+    .highlight-stats strong {
+      color: var(--ink);
+      font-weight: 600;
     }
 
     .stepper {
@@ -304,8 +327,13 @@
       <input type="checkbox" id="collinearHighlight" />
       <span>Highlight collinear primes (10+)</span>
     </label>
+    <label class="toggle full-line" for="fullLineHighlight">
+      <input type="checkbox" id="fullLineHighlight" />
+      <span>Highlight fully prime lines</span>
+    </label>
   </form>
 
+  <p class="highlight-stats" id="highlightStats" aria-live="polite"></p>
   <p class="error" id="error" aria-live="polite"></p>
 
   <div class="canvas-wrap">
@@ -325,6 +353,8 @@
         maxIncrements: document.getElementById("maxIncrements"),
       };
       const collinearToggle = document.getElementById("collinearHighlight");
+      const fullLineToggle = document.getElementById("fullLineHighlight");
+      const highlightStats = document.getElementById("highlightStats");
       const COLLINEAR_MIN = 10;
       let lastPoints = null;
 
@@ -480,6 +510,55 @@
         return highlighted;
       }
 
+      /** Indices of primes that lie on a line where every spiral node on that line is prime. */
+      function findFullyPrimeLineIndices(points) {
+        const highlighted = new Set();
+        const n = points.length;
+        if (n < 2) return highlighted;
+
+        const eps = 1e-9;
+
+        for (let i = 0; i < n; i++) {
+          const groups = new Map();
+          const pi = points[i];
+          for (let j = 0; j < n; j++) {
+            if (i === j) continue;
+            const pj = points[j];
+            let dx = pj.x - pi.x;
+            let dy = pj.y - pi.y;
+            if (Math.abs(dx) < eps && Math.abs(dy) < eps) continue;
+            const len = Math.hypot(dx, dy);
+            dx /= len;
+            dy /= len;
+            if (dx < -eps || (Math.abs(dx) < eps && dy < 0)) {
+              dx = -dx;
+              dy = -dy;
+            }
+            const key = Math.round(dx * 1e6) + "," + Math.round(dy * 1e6);
+            let group = groups.get(key);
+            if (!group) {
+              group = [i];
+              groups.set(key, group);
+            }
+            group.push(j);
+          }
+          for (const group of groups.values()) {
+            if (group.length < 2) continue;
+            let allPrime = true;
+            for (let k = 0; k < group.length; k++) {
+              if (!points[group[k]].prime) {
+                allPrime = false;
+                break;
+              }
+            }
+            if (!allPrime) continue;
+            for (let k = 0; k < group.length; k++) highlighted.add(group[k]);
+          }
+        }
+
+        return highlighted;
+      }
+
       function draw(points) {
         lastPoints = points;
         const cssSize = syncCanvasSize();
@@ -525,10 +604,28 @@
         const styles = getComputedStyle(document.documentElement);
         const primeColor = styles.getPropertyValue("--prime").trim() || "#e8c47c";
         const collinearColor = styles.getPropertyValue("--prime-collinear").trim() || "#e85d5d";
+        const fullLineColor = styles.getPropertyValue("--prime-full-line").trim() || "#4caf7a";
         const highlightCollinear = collinearToggle.checked;
+        const highlightFullLine = fullLineToggle.checked;
         const collinear = highlightCollinear
           ? findCollinearPrimeIndices(points, COLLINEAR_MIN)
           : null;
+        const fullLine = highlightFullLine
+          ? findFullyPrimeLineIndices(points)
+          : null;
+
+        if (highlightCollinear) {
+          let primeCount = 0;
+          for (let i = 0; i < points.length; i++) {
+            if (points[i].prime) primeCount += 1;
+          }
+          highlightStats.textContent =
+            "Primes: " + primeCount + " · Red highlights: " + (collinear ? collinear.size : 0);
+          highlightStats.classList.add("is-visible");
+        } else {
+          highlightStats.textContent = "";
+          highlightStats.classList.remove("is-visible");
+        }
 
         const radius = Math.max(2.2, Math.min(7, 90 / Math.sqrt(points.length)));
         const baseWidth = Math.max(1.25, radius * 0.35);
@@ -536,11 +633,12 @@
         for (let i = 0; i < points.length; i++) {
           if (!points[i].prime) continue;
           const { sx, sy } = screen[i];
-          const isCollinear = collinear && collinear.has(i);
-          ctx.strokeStyle = isCollinear ? collinearColor : primeColor;
-          ctx.lineWidth = isCollinear ? baseWidth * 1.75 : baseWidth;
+          const isFullLine = fullLine && fullLine.has(i);
+          const isCollinear = !isFullLine && collinear && collinear.has(i);
+          ctx.strokeStyle = isFullLine ? fullLineColor : isCollinear ? collinearColor : primeColor;
+          ctx.lineWidth = isFullLine || isCollinear ? baseWidth * 1.75 : baseWidth;
           ctx.beginPath();
-          ctx.arc(sx, sy, isCollinear ? radius * 1.15 : radius, 0, Math.PI * 2);
+          ctx.arc(sx, sy, isFullLine || isCollinear ? radius * 1.15 : radius, 0, Math.PI * 2);
           ctx.stroke();
         }
       }
@@ -583,7 +681,7 @@
       });
 
       form.addEventListener("change", function (e) {
-        if (e.target === collinearToggle) redraw();
+        if (e.target === collinearToggle || e.target === fullLineToggle) redraw();
       });
 
       form.addEventListener("click", function (e) {
