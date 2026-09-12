@@ -510,13 +510,23 @@
         return highlighted;
       }
 
-      /** Indices of primes that lie on a line where every spiral node on that line is prime. */
+      /**
+       * Indices of primes on a straight line where every spiral node on that line is
+       * prime, and consecutive nodes are neighbors (no long skips). Without the
+       * neighbor-spacing rule, almost every prime pair alone on a slope lights up.
+       */
       function findFullyPrimeLineIndices(points) {
         const highlighted = new Set();
         const n = points.length;
         if (n < 2) return highlighted;
 
         const eps = 1e-9;
+        // Spiral edges are unit length; allow square-grid diagonals (√2 × unit).
+        const unit =
+          n >= 2
+            ? Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y) || 1
+            : 1;
+        const maxStep = unit * Math.SQRT2 + 1e-6;
 
         for (let i = 0; i < n; i++) {
           const groups = new Map();
@@ -552,7 +562,36 @@
               }
             }
             if (!allPrime) continue;
-            for (let k = 0; k < group.length; k++) highlighted.add(group[k]);
+
+            const base = points[group[0]];
+            let ux = points[group[1]].x - base.x;
+            let uy = points[group[1]].y - base.y;
+            const ul = Math.hypot(ux, uy) || 1;
+            ux /= ul;
+            uy /= ul;
+            const ordered = group.slice().sort(function (a, b) {
+              const ta = (points[a].x - base.x) * ux + (points[a].y - base.y) * uy;
+              const tb = (points[b].x - base.x) * ux + (points[b].y - base.y) * uy;
+              return ta - tb;
+            });
+            const gaps = [];
+            for (let k = 1; k < ordered.length; k++) {
+              const a = points[ordered[k - 1]];
+              const b = points[ordered[k]];
+              gaps.push(Math.hypot(b.x - a.x, b.y - a.y));
+            }
+            const step = Math.min.apply(null, gaps);
+            if (step > maxStep) continue;
+            let uniform = true;
+            for (let k = 0; k < gaps.length; k++) {
+              if (Math.abs(gaps[k] - step) > 1e-4) {
+                uniform = false;
+                break;
+              }
+            }
+            if (!uniform) continue;
+
+            for (let k = 0; k < ordered.length; k++) highlighted.add(ordered[k]);
           }
         }
 
