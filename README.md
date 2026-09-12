@@ -11,7 +11,7 @@ Polygonal Ulam spiral visualizer. The spiral path is drawn as a line; hollow cir
 | Increment | Added to the value at each step |
 | Max increments | How many steps to draw after the center |
 | Highlight collinear primes (10+) | When on, primes that lie on a straight line with at least 10 primes in the current spiral are drawn in red. Also shows a counter of total primes and red highlights. |
-| Highlight fully prime lines | When on, primes on any straight line where every spiral node on that line is prime are drawn in green (any length ≥ 2). Green overrides red when both toggles are on. |
+| Highlight fully prime lines | When on, primes on a straight line where every spiral node on that line is prime — and consecutive nodes are neighbors (no long skips) — are drawn in green. Green overrides red when both toggles are on. Try **Start = 41**, **Max increments = 100** for a clear fully prime diagonal. |
 
 Use the **+** / **−** buttons or type a value; the spiral updates on every change. The highlight toggles redraw immediately.
 

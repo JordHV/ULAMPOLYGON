@@ -96,13 +96,19 @@ function findCollinearPrimeIndices(points, minCount) {
   return highlighted;
 }
 
-/** Indices of primes that lie on a line where every spiral node on that line is prime. */
+/**
+ * Indices of primes on a straight line where every spiral node on that line is
+ * prime, and consecutive nodes are neighbors (no long skips).
+ */
 function findFullyPrimeLineIndices(points) {
   const highlighted = new Set();
   const n = points.length;
   if (n < 2) return highlighted;
 
   const eps = 1e-9;
+  const unit =
+    n >= 2 ? Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y) || 1 : 1;
+  const maxStep = unit * Math.SQRT2 + 1e-6;
 
   for (let i = 0; i < n; i++) {
     const groups = new Map();
@@ -138,7 +144,36 @@ function findFullyPrimeLineIndices(points) {
         }
       }
       if (!allPrime) continue;
-      for (let k = 0; k < group.length; k++) highlighted.add(group[k]);
+
+      const base = points[group[0]];
+      let ux = points[group[1]].x - base.x;
+      let uy = points[group[1]].y - base.y;
+      const ul = Math.hypot(ux, uy) || 1;
+      ux /= ul;
+      uy /= ul;
+      const ordered = group.slice().sort((a, b) => {
+        const ta = (points[a].x - base.x) * ux + (points[a].y - base.y) * uy;
+        const tb = (points[b].x - base.x) * ux + (points[b].y - base.y) * uy;
+        return ta - tb;
+      });
+      const gaps = [];
+      for (let k = 1; k < ordered.length; k++) {
+        const a = points[ordered[k - 1]];
+        const b = points[ordered[k]];
+        gaps.push(Math.hypot(b.x - a.x, b.y - a.y));
+      }
+      const step = Math.min(...gaps);
+      if (step > maxStep) continue;
+      let uniform = true;
+      for (let k = 0; k < gaps.length; k++) {
+        if (Math.abs(gaps[k] - step) > 1e-4) {
+          uniform = false;
+          break;
+        }
+      }
+      if (!uniform) continue;
+
+      for (let k = 0; k < ordered.length; k++) highlighted.add(ordered[k]);
     }
   }
 
@@ -250,7 +285,7 @@ test("findFullyPrimeLineIndices ignores lines with a non-prime gap", () => {
   assert.equal(hit.size, 0);
 });
 
-test("findFullyPrimeLineIndices highlights short all-prime lines", () => {
+test("findFullyPrimeLineIndices highlights short neighbor all-prime lines", () => {
   const points = [
     { x: 0, y: 0, value: 0, prime: true },
     { x: 1, y: 1, value: 0, prime: true },
@@ -260,4 +295,31 @@ test("findFullyPrimeLineIndices highlights short all-prime lines", () => {
   assert.equal(hit.size, 2);
   assert.ok(hit.has(0));
   assert.ok(hit.has(1));
+});
+
+test("findFullyPrimeLineIndices ignores sparse all-prime skips", () => {
+  // Unit path step via (0,0)→(0,1); primes on y=0 are spaced 5 apart (not neighbors).
+  const points = [
+    { x: 0, y: 0, value: 0, prime: true },
+    { x: 0, y: 1, value: 0, prime: false },
+    { x: 5, y: 0, value: 0, prime: true },
+    { x: 10, y: 0, value: 0, prime: true },
+  ];
+  const hit = findFullyPrimeLineIndices(points);
+  assert.equal(hit.size, 0);
+});
+
+test("default square spiral has no fully prime neighbor lines", () => {
+  const points = buildSpiral(1, 4, 1, 500);
+  const hit = findFullyPrimeLineIndices(points);
+  assert.equal(hit.size, 0);
+});
+
+test("start=41 square spiral has a fully prime diagonal", () => {
+  // Classic Ulam diagonal through 41: every node on y=-x in this view is prime.
+  const points = buildSpiral(41, 4, 1, 100);
+  const hit = findFullyPrimeLineIndices(points);
+  assert.equal(hit.size, 10);
+  const values = [...hit].map((i) => points[i].value).sort((a, b) => a - b);
+  assert.deepEqual(values, [41, 43, 47, 53, 61, 71, 83, 97, 113, 131]);
 });
